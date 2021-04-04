@@ -21,10 +21,10 @@ public class SharedConfiguration {
     private final StepBuilderFactory stepBuilderFactory;
 
     /*
-    JobExecutionContext는 하나의 Job 내에서(여러Step) 공유할 수 있고
-    StepExecutionContext는 하나의 Step 내에서만 공유할 수 있다.
+        JobExecutionContext는 하나의 Job 내에서(여러Step) 공유할 수 있고
+        StepExecutionContext는 하나의 Step 내에서만 공유할 수 있다.
+    */
 
-     */
     @Bean
     public Job sharedJob() {
         return jobBuilderFactory.get("sharedJob")
