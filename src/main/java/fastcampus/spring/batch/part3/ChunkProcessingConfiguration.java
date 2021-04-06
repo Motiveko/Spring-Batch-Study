@@ -21,8 +21,6 @@ import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
-import org.springframework.context.annotation.ScopedProxyMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +82,7 @@ public class ChunkProcessingConfiguration {
 
     @Bean
 //    @Scope(value = "step", proxyMode = ScopedProxyMode.TARGET_CLASS)
-    @StepScope 
+    @StepScope
     public Tasklet tasklet(@Value("#{jobParameters[chunkSize]}") String value) {
         // chunksize = 10의 chunk 방식을 tasklet으로 구현
 

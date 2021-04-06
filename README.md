@@ -54,6 +54,58 @@
  - 매 step/job 마다 새로운 Bean을 생성하고, 이 때 SpringEL을 이용해 jobParametes에 접근한다.
  - 매 Job/Step마다 새로운 Bean을 실행하기때문에 ThreadSafe한 배치를 구현할 수 있다.
 
+<br>
 
+## Intellij template
 
+---
 
+> Itellij의 template 기능을 활용해 Configuration 클래스를 템플릿으로 만들 수 있다
+
+<br>
+
+-  Tools > SaveFileAsTemplate으로 파일을 템플릿으로 저장 후 새로운 클래스 생성시 해당 템플릿을 생성하고 변수명 입력하는 방식
+
+<br>
+
+## ItemReader
+> ItemReader는 Batch에서 어떤 대상(DB, file, network)에서 데이터를 읽는 역할을 수행한다.
+
+- Step에서 ItemReader는 필수
+- Spring Batch에서 기본 재공하는 `ItemReader`의 구현체
+    - file, jdbc, jpa, hibernate, kafka, ...
+- ItemReader 인터페이스를 직접 구현하는 구현체를 사용해도 된다.
+- ItemReader는 read()가 null을 반환하는 순간 chunk의 반복이 끝난다.
+- JpaCursorItemReader 등이 상속하는 AbstractItemStreamItemReader는 ItemReader와 ItemStream을 구현하는데, ItemStream은 update()로 `ExecutionContext에` 정보를 저장한다.
+
+<br>
+
+### 1. FlatFileItemReader 
+> File을 읽는데 쓰이는 ItemReader 구현체, Csv등을 읽을 수 있다.
+
+설정요소 
+- name : ItemReader의 name
+- encoding : encoding 방식
+- resource : 읽을 파일
+- lineToSkip : 데이터의 시작 열, default : 1로하면 첫줄(keys)는 제외하고 읽는다
+- lineMapper : lineMapper, 핵심
+    - tokenizer객체를 이용해 keys를 우리가 원하는 값으로 맵핑한다
+    ```
+        DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
+        
+        // csv의 컬럼 id, 이름, 연령, 주소 -> id, name, age, address로 참조가 가능해진다
+        tokenizer.setNames("id","name","age","address");
+        
+        lineMapper.setLineTokenizer(tokenizer);
+    ```
+    - fieldSetMapper를 이용해 읽은 값을 원하는 객체로 맵핑한다
+    ```
+        lineMapper.setFieldSetMapper(fieldSet -> {
+            int id = fieldSet.readInt("id");            // tokenizer를 통해 setName한 값들로 접근한다
+            String name = fieldSet.readString("name");
+            String age = fieldSet.readString("age");
+            String address = fieldSet.readString("address");
+
+            return new Person(id,name,age,address);
+        });
+    ```
