@@ -109,3 +109,7 @@
             return new Person(id,name,age,address);
         });
     ```
+- afterPropertiesSet()로 필수값이 올바르게 설정되었는지 검사한다. lineMapper가 null이면 throw Excpetion
+```
+itemReader.afterPropertiesSet();
+```
