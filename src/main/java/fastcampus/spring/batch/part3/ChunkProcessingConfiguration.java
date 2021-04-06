@@ -10,6 +10,7 @@ import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemProcessor;
@@ -21,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,16 +70,22 @@ public class ChunkProcessingConfiguration {
         return items -> log.info("chunk items size : {}",  items.size());
     }
 
-
+    //       @Bean          @Bean
+    //       @JobScope      @StepScope
+    // Job -> Step      -> chunk
+    //                  -> tasklet
 
     @Bean
     public Step taskBaseStep() {
         return stepBuilderFactory.get("taskBaseStep")
-                .tasklet(tasklet())
+                .tasklet(tasklet(null))
                 .build();
     }
 
-    private Tasklet tasklet() {
+    @Bean
+//    @Scope(value = "step", proxyMode = ScopedProxyMode.TARGET_CLASS)
+    @StepScope 
+    public Tasklet tasklet(@Value("#{jobParameters[chunkSize]}") String value) {
         // chunksize = 10의 chunk 방식을 tasklet으로 구현
 
         List<String> items = getItems();
@@ -85,11 +93,10 @@ public class ChunkProcessingConfiguration {
         return (contribution, chunkContext) -> {
 
             StepExecution stepExecution = contribution.getStepExecution();
-            JobParameters jobParameters = stepExecution.getJobParameters();
 
-
-            // Program Argument 에서 -chunkSize={VALUE} 로 설정한 값을 jobParameters에서 읽을 수 있다.
-            String value = jobParameters.getString("chunkSize", "10");
+//            JobParameters jobParameters = stepExecution.getJobParameters();
+//            // Program Argument 에서 -chunkSize={VALUE} 로 설정한 값을 jobParameters에서 읽을 수 있다.
+//            String value = jobParameters.getString("chunkSize", "10");
             int chunkSize = StringUtils.isNotEmpty(value) ? Integer.parseInt(value) : 10;
             int fromIndex = stepExecution.getReadCount();
             int toIndex = fromIndex + chunkSize;             //
