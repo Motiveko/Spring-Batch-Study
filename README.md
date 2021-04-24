@@ -135,6 +135,17 @@ JdbcCursorItemReader 설정 요소
  - rowMapper / beanMapper : 쿼리 실행 결과를 객체에 맵핑
  - afterPropertiesSet : 필수값이 올바르게 설정되었는지 검사. throws Exception()
 
+### 3. JpaItemReader
+> Jpa기반으로 db를 조회할 수 있는 itemReader. 역시 JpaCursorItemReader, JpaPagingItemReader가 있다.
+
+jdbc와 사용법이 비슷하기에 차이점만 정리
+ | JdbcItemReader | JpaItemReader |
+|---|:---:|
+| datasource | entityManager | 
+| native Query | jpql Query |
+| row/bean Mapper | Entity 객체 |
+
+
 
 
 
