@@ -146,7 +146,31 @@ jdbc와 사용법이 비슷하기에 차이점만 정리
 | row/bean Mapper | Entity 객체 |
 
 
+<br>
+
+## ItemWriter
+
+> ItemWriter는 Batch에서 Db, file등에 write/update/delete 등을 수행하거나 발송 대상에게 메일블 보내는 등의 배치 데이터의 최종 처리를 수행한다. Chunk방식 Step에서 필수값.
 
 
+### 1. FlatFileItemWriter
+ > File을 쓰는데 쓰이는 ItemWriter 구현체, Csv등을 쓸 수 있다.
 
+설정요소
+ - name : writer의 이름
+ - encoding : 인코딩 설정
+ - resource : FileSystemResource 객체로 output 경로 설정
+ - lineAggregator : 핵심, output 객체와 write할 파일을 맵핑한다.
+```
+        BeanWrapperFieldExtractor<Person> fieldExtractor = new BeanWrapperFieldExtractor<>();
+        fieldExtractor.setNames(new String[]{"id", "name", "age", "address"});              // 이 순서로 객체 필드에서 가져와 write
+
+        DelimitedLineAggregator<Person> lineAggregator = new DelimitedLineAggregator<>();
+        lineAggregator.setDelimiter(",");   // csv이기때문에 comma seperated
+        lineAggregator.setFieldExtractor(fieldExtractor);
+```
+
+ - headerCallback : 헤더 설정 ( FlatFileHeaderCallback)
+ - footerCallback : 푸터 설정 ( FlatFileFooterCallback)
+ - append : true로 설정 시 같은 resource에 쓰기 시 연결해서 쓴다.
 
