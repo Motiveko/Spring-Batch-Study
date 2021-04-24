@@ -113,3 +113,29 @@
 ```
 itemReader.afterPropertiesSet();
 ```
+
+### 2. JdbcItemReader
+> Jdbc를 이용해 db에서 데이터를 읽어올 수 있다. JdbcCursorItemReader, JdbcPagingItemReader가 있다
+
+JdbcCursorItemReader
+ - cursor 기반 JdbcItemReader
+ - 배치가 끝날때까지 connection 유지
+ - 한번의 connection으로 처리하기때문에 성능은 좋으나 긴 connection 시간과, thread safe 하지 않음
+ - 모든 결과를 메모리에 할당하기 때문에 많은 메모리 사용
+
+JdbcPagingItemReader
+ - 페이징 단위로 Db Connection
+ - 여러번의 Connection을 하기때문에 성능은 낮으나 짧은 connection 시간과 thread safe함
+ - 페이징 단위의 결과만 메모리에 할당하기때문에 메모리 사용 적음
+
+JdbcCursorItemReader 설정 요소
+ - name: ItemReader의 이름
+ - datasource : 연결할 DataSource
+ - sql : 조회할 쿼리
+ - rowMapper / beanMapper : 쿼리 실행 결과를 객체에 맵핑
+ - afterPropertiesSet : 필수값이 올바르게 설정되었는지 검사. throws Exception()
+
+
+
+
+

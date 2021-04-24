@@ -21,8 +21,8 @@ public class SharedConfiguration {
     private final StepBuilderFactory stepBuilderFactory;
 
     /*
-        JobExecutionContext는 하나의 Job 내에서(여러Step) 공유할 수 있고
-        StepExecutionContext는 하나의 Step 내에서만 공유할 수 있다.
+        JobExecutionContext는 하나의 Job 내에서(여러Step) 공유할 수 있고   -> db 테이블이 존재한다
+        StepExecutionContext는 하나의 Step 내에서만 공유할 수 있다.       -> db 테이블이 없다
     */
 
     @Bean
@@ -48,7 +48,7 @@ public class SharedConfiguration {
                     JobExecution jobExecution = stepExecution.getJobExecution();
                     JobInstance jobInstance = jobExecution.getJobInstance();
                     ExecutionContext jobExecutionContext = jobExecution.getExecutionContext();
-                    jobExecutionContext.putString("jobKey", "job execution context");
+                    jobExecutionContext.putString("jobKey", "job execution context");           // BATCH_JOB_EXECUTION_PARAMS에 저장된다.
                     JobParameters jobParameters = jobExecution.getJobParameters();
 
                     // jobName, stepName, RunIdIncrementer가 생성한 run.id 시퀀스값 출력
