@@ -152,7 +152,6 @@ jdbc와 사용법이 비슷하기에 차이점만 정리
 
 > ItemWriter는 Batch에서 Db, file등에 write/update/delete 등을 수행하거나 발송 대상에게 메일블 보내는 등의 배치 데이터의 최종 처리를 수행한다. Chunk방식 Step에서 필수값.
 
-
 ### 1. FlatFileItemWriter
  > File을 쓰는데 쓰이는 ItemWriter 구현체, Csv등을 쓸 수 있다.
 
@@ -173,4 +172,33 @@ jdbc와 사용법이 비슷하기에 차이점만 정리
  - headerCallback : 헤더 설정 ( FlatFileHeaderCallback)
  - footerCallback : 푸터 설정 ( FlatFileFooterCallback)
  - append : true로 설정 시 같은 resource에 쓰기 시 연결해서 쓴다.
+
+
+rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵션
+
+<br>
+
+### 2. JdbcBatchItemWriter
+> jdbc를 이용해 db에 insert/update/delete등을 수행. 
+
+설정 요소 
+ - datasource: datasource
+ - itemSqlParameterSourceProvider : processor에서 받은 객체를 쿼리의 parameter로 맵핑해주는 설정
+ - sql : 쿼리
+
+<br>
+
+### 3. JpaItemWriter
+> entityManager를 통해 db에 insert/update/delete등을 수행. JdbcBatchItemWriter처럼 bulk로 처리하지 않고 단건단건 수행한다.
+
+
+설정 요소
+
+ - entityManagerFactory : entityManager를 생성하는 factory  설정
+ - usePersist(boolean) : 
+    - 기본값 false, .merge() 실행 시 entity에 id값이 존재하면 update/insert 여부를 판별하기 위해 해당 entity의 id로 select를 해본다. 성능이 구려진다.
+    - false : entityManager.merge()
+    - true : entityManager.persist() 
+    
+
 

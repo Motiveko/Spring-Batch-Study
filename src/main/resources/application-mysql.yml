@@ -1,10 +1,15 @@
 spring:
   datasource:
     hikari:
-      jdbc-url: jdbc:mysql://localhost:3307/spring_batch?characterEncoding=UTF-8&serverTimezone=UTC
+      jdbc-url: jdbc:mysql://localhost:3307/spring_batch?characterEncoding=UTF-8&serverTimezone=UTC&rewriteBatchedStatements=true
       driver-class-name: com.mysql.cj.jdbc.Driver
       username: root
       password:
+  jpa:
+    show-sql: true              # jpa 쿼리가 로그로 찍혀요
+    hibernate:
+      ddl-auto: update
+
   batch:
     initialize-schema: never    # 메타테이블 자동생성하지 않게
 
