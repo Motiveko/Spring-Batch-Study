@@ -3,11 +3,26 @@
 
 강의자료 - fastcampus 대규모 서비스를 위한 스프링 Cloud와 Batch
 
+<br><br>
+
+### 데이터베이스 셋업
+
+ 1.  docker를 이용한 실행 전 local 환경 mysql 셋업(yml 3307로 설정되어있음)
+
+```
+docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=true --name mysql -p 3307:3306 mysql
+```
+
+2. spring_batch database 생성
+``` 
+create database spring_batch;
+```
+
+3. spring batch 에서 제공하는 mysql sql실행
 
 
 
-
-
+<br><br>
 
 
 ## JobParameters 
@@ -204,3 +219,6 @@ rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵�
 <br>
 
 ## ItemProcessor 
+> Item Reader에서 읽은 item들을 처리 후 output의 junksize 크기의 list형태로 ItemWriter에 넘겨준다. Chunk Process에서 필수는 아니고, ItemProcessor의 로직이 Writer/Reader에 존재할 수 있으나 명확한 책임 분리를 위해 사용.
+
+> return null시 해당 item은 Writer에 넘기지 않는다.
