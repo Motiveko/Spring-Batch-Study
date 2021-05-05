@@ -34,7 +34,7 @@ import java.util.Map;
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class CsvChunkConfiguration {
+public class SavePersonConfiguration {
 
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
@@ -54,6 +54,7 @@ public class CsvChunkConfiguration {
     public Step csvChunkStep(
             @Value("#{jobParameters[allow_duplicate]}") String allowDuplicate
     ) throws Exception {
+        log.info("동기야?");
         boolean flag = "true".equals(allowDuplicate) ? true : false;
         return stepBuilderFactory.get("csvChunkStep")
                 .<Person,Person>chunk(100)
@@ -131,5 +132,8 @@ public class CsvChunkConfiguration {
             }
         };
     }
+    
+
+
 
 }

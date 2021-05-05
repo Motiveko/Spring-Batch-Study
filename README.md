@@ -10,7 +10,11 @@
  1.  docker를 이용한 실행 전 local 환경 mysql 셋업(yml 3307로 설정되어있음)
 
 ```
-docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=true --name mysql -p 3307:3306 mysql
+docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=true --rm -v {LOCAL_DIRECTORY}:/var/lib/mysql --name mysql -p {LOCAL_PORT}:3306 mysql
+```
+
+```
+docker run -d -e MYSQL_ALLOW_EMPTY_PASSWORD=true --rm -v /Users/donggi/Desktop/Programing/mysql_tmp:/var/lib/mysql --name mysql -p 3307:3306 mysql
 ```
 
 2. spring_batch database 생성
@@ -123,7 +127,7 @@ create database spring_batch;
 
             return new Person(id,name,age,address);
         });
-    ```
+    ``` 
 - afterPropertiesSet()로 필수값이 올바르게 설정되었는지 검사한다. lineMapper가 null이면 throw Excpetion
 ```
 itemReader.afterPropertiesSet();
