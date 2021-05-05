@@ -7,7 +7,6 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
@@ -16,7 +15,6 @@ import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
-import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.support.CompositeItemWriter;
@@ -42,25 +40,27 @@ public class SavePersonConfiguration {
 
 
     @Bean
-    public Job csvChunkJob() throws Exception {
-        return jobBuilderFactory.get("csvChunkJob")
+    public Job savePersonJob() throws Exception {
+        return jobBuilderFactory.get("savePersonJob")
                 .incrementer(new RunIdIncrementer())
-                .start(this.csvChunkStep(null))
+                .start(this.savePersonStep(null))
+                .listener(new SavePersonListener.SavePersonJobExecutionListener())      // SavePersonListener에 선언한 JobExecutionListner 적용
+                .listener(new SavePersonListener.SavePersonAnnotationJobExecution())    // SavePersonListener에 선언한 JobExecutionListner 적용
                 .build();
     }
 
     @Bean
     @JobScope
-    public Step csvChunkStep(
+    public Step savePersonStep(
             @Value("#{jobParameters[allow_duplicate]}") String allowDuplicate
     ) throws Exception {
-        log.info("동기야?");
         boolean flag = "true".equals(allowDuplicate) ? true : false;
-        return stepBuilderFactory.get("csvChunkStep")
+        return stepBuilderFactory.get("savePersonStep")
                 .<Person,Person>chunk(100)
                 .reader(csvFileItemReader())
                 .processor(itemProcessor(flag))
                 .writer(compositeItemWriter())
+                .listener(new SavePersonListener.SavePersonStepExecutionListener())     // SavePersonListener에 선언한 StepExecutionListener(annotation 기반)
 //                .writer(getPersonJpaItemWriter())
                 .build();
     }

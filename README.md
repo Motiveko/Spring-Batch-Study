@@ -220,9 +220,107 @@ rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵�
     - true : entityManager.persist() 
     
 
-<br>
+<br><br>
 
 ## ItemProcessor 
 > Item Reader에서 읽은 item들을 처리 후 output의 junksize 크기의 list형태로 ItemWriter에 넘겨준다. Chunk Process에서 필수는 아니고, ItemProcessor의 로직이 Writer/Reader에 존재할 수 있으나 명확한 책임 분리를 위해 사용.
 
 > return null시 해당 item은 Writer에 넘기지 않는다.
+
+
+<br><br>
+
+## Listener
+> 스프링 배치에서 전/후 처리 하는 다양한 Listener가 존재한다. 
+ - 스프링 배치에서 제공하는 Interface 구현체 Listener
+ - Annotation기반 Listener
+
+<br>
+
+### 1. JobExecutionListener
+> Job의 실행 전,후 처리를 위한 Listener
+ - Interface 구현체 기반 Listener
+ ```
+class SavePersonJobExecutionListener implements JobExecutionListener {
+        @Override
+        public void beforeJob(JobExecution jobExecution) {
+            // job 전처리
+        }
+
+        @Override
+        public void afterJob(JobExecution jobExecution) {
+            // job 후처리
+        }
+}
+ ```
+
+ - annotation 기반 Listener
+
+ ```
+    public static class SavePersonAnnotationJobExecution {
+        @BeforeJob
+        public void beforeJob(JobExecution jobExecution) {
+            // Job 전처리
+        }
+
+        @AfterJob
+        public void afterJob(JobExecution jobExecution) {       
+            // Job 후처리
+        }
+    }
+ ```
+
+ - 설정
+  > job bean에 설정, 여러개의 listener을 연달아 설정하면 내부적으로 List\<Listener\> 로 가지고 설정한 순서대로 실행된다.
+
+  ```
+    jobBuilderFactory.get("savePersonJob")
+        .listener(new SavePersonJobExecutionListener())
+        .listener(newSavePersonAnnotationJobExecution())
+        .build()
+  ```
+
+
+### 2. StepExecutionListener
+> Step의 실행 전,후 처리를 위한 Listener, JobExecutionListener와 설정, 작동 원리가 같다.
+
+ - Interface 구현체 기반 Listener
+ ```
+    class SavePersonStepExecutionListener implements StepExecutionListener {
+        @Override
+        public void beforeStep(StepExecution stepExecution) {
+            // Step 전처리
+        }
+
+        @Override
+        public void afterStep(StepExecution stepExecution) {
+            // Step 후처리
+        }
+}
+ ```
+
+ - annotation 기반 Listener
+
+ ```
+    class SavePersonAnnotationStepExecution {
+        @BeforeStep
+        public void beforeStep(StepExecution stepExecution) {
+            // Step 전처리
+        }
+
+        @AfterStep
+        public void afterStep(StepExecution stepExecution) {       
+            // Step 후처리
+        }
+    }
+ ```
+
+ - 설정
+  > step bean에 설정, 여러개의 listener을 연달아 설정하면 내부적으로 List\<Listener\> 로 가지고 설정한 순서대로 실행된다.
+
+  ```
+    StepBuilderFactory.get("savePersonStep")
+        .listener(new SavePersonStepExecutionListener())
+        .listener(SavePersonAnnotationStepExecution())
+        .build()
+  ```

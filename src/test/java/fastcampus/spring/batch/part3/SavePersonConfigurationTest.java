@@ -21,7 +21,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 @ContextConfiguration(classes = { SavePersonConfiguration.class, TestConfiguration.class })
 // Junit5에서 @Autowired사용하기 위해서 필수 설정
 @ExtendWith(SpringExtension.class)
-@SpringBatchTest // @Scope의 정상 작동을 위한 annotation               
+@SpringBatchTest // @Scope의 정상 작동을 위한 annotation
 class SavePersonConfigurationTest {
 
     @Autowired
