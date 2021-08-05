@@ -49,7 +49,7 @@ public class ChunkProcessingConfiguration {
     ) {
         int chunkSizeInt = StringUtils.isNotEmpty(chunkSize) ? Integer.parseInt(chunkSize) : 10;
         return stepBuilderFactory.get("chunkBaseStep")
-                .<String, String>chunk(chunkSizeInt)          // <INPUT, OUTPUT>chunk( chunkSize)
+                .<String, String>chunk(chunkSizeInt)                      // <INPUT, OUTPUT>chunk( chunkSize)
                 .reader(itemReader())                        // ListItemReader, processor에 INPUT 타입의 개별 아이템을 보낸다.
                 .processor(getItemProcessor())               // item을 processing하여 List<Output> 으로 writer로 보낸다(chunkSize만큼의 크기)
                 .writer(itemWriter())                        // 받아온 List를 처리한다.

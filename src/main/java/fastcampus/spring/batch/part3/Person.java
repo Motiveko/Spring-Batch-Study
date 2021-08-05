@@ -8,6 +8,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import java.util.Objects;
 
 @Getter
 @Entity
@@ -24,5 +25,14 @@ public class Person {
 
     public Person(String name, String age, String address) {
         this(0, name, age, address);
+    }
+
+    public boolean isNotEmptyName() {
+        return Objects.nonNull(this.name) && !name.isEmpty();
+    }
+
+    public Person unknown() {
+        this.name = "UNKOWN";
+        return this;
     }
 }

@@ -207,9 +207,10 @@ rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵�
 
 <br>
 
-### 3. JpaItemWriter
+### 3. JpaItemWriter 
 > entityManager를 통해 db에 insert/update/delete등을 수행. JdbcBatchItemWriter처럼 bulk로 처리하지 않고 단건단건 수행한다.
 
+> functional interface 중 Consumer<T> 와 같다.( void write(T) )
 
 설정 요소
 
@@ -219,6 +220,9 @@ rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵�
     - false : entityManager.merge()
     - true : entityManager.persist() 
     
+### 4. (추가) CompositeItemWriter
+> 여러개의 ItemWriter를 동시에 사용할 수 있게 하는 ItemWriter
+-  List<ItemWriter> 를 만들어 ItemWriter추가 후 personCompositeItemWriter.setDelegates(delegates) 해주기만 하면 된다.
 
 <br><br>
 
@@ -226,6 +230,15 @@ rewriteBatchedStatements=true => 벌크 insert를 사용하기 위한 mysql 옵�
 > Item Reader에서 읽은 item들을 처리 후 output의 junksize 크기의 list형태로 ItemWriter에 넘겨준다. Chunk Process에서 필수는 아니고, ItemProcessor의 로직이 Writer/Reader에 존재할 수 있으나 명확한 책임 분리를 위해 사용.
 
 > return null시 해당 item은 Writer에 넘기지 않는다.
+> functional interface 중 Function<T,R> 과 같다. ( R process(T) )
+
+<br><br>
+
+## Test Spring Batch
+
+1. JobLauncher 로 Job과 Step을 실행하게 된다.
+
+2. JobLauncherTestUtils class는 내부적으로 JobLaucher를 포함하고 있어 Test code에서 자유롭게 Job, Step을 실행할 수 있다.
 
 
 <br><br>
@@ -324,3 +337,63 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
         .listener(SavePersonAnnotationStepExecution())
         .build()
   ```
+
+<br><br>
+
+## StepListener
+> Step 전 후의 처리를 담당하는 Listener. StepExecutionListener도 StepListener의 구현체 중 하나이다.
+
+- SkipListener 
+    - Skip 이란 : Step의 예외처리 방법 중 하나
+    - onSkipInRead: @OnSkipInRead
+        - ItemReader에서 Skip이 발생한 경우 호출
+    - onSkipInWrite: @OnSkipInWrite
+        - ItemWriter에서 Skip이 발생한 경우 호출
+    - onSkipInProccess: @OnSkipInProccess
+        - ItemProccessor에서 Skip이 발생한 경우 호출
+
+- ItemReaderListener
+    - 아이템 읽기 전,후,중에 호출
+    - beforeRead: @BeforeRead
+        - ItemReader.read() 메소드 호출 전 호출
+    - afterRead: @AfterRead
+        - ItemReader.read() 메소드 호출 후 호출
+    - OnReadError: @OnReadError
+        - ItemReader.read()중 에러 발생 시 호출                
+
+- ItemProcessListener
+    - ItemReaderListener 참고
+
+- ItemWriterListener
+    - ItemReaderListener 참고
+
+- ChunkListener
+    - chunk 실행 전,후,중에 호출
+    - ItemReaderListener 참고
+
+<br><br>
+
+## 예외처리
+
+### Skip(건너뛰기)
+> skip은 데이터가 없는 등의 재실행 하지 않을 특정 에러의 처리에 대해 일정 횟수만큼 허용하는 방식으로 에러를 처리한다.
+
+- StepBuilder.faultTolerant().skip(Exception.class).skipLimit(N)
+- 허용 횟수를 초과한 Exception발생시 해당 Step은 실패한것으로 처리되는데, Step은 Chunk 1개 기준으로 transaction이 발생하기때문에, 실패한 chunk 전 후의 성공 chunk rollback되지 않는다.
+    - 예) 10개의 chunk을 수행하는 step이 있다고 가정할 때, 10번째 chunk에서 실패하게 되면, 1-9 chunk 성공처리
+    - 그러나 1개의 chunk 실패했기때문에, 해당 step은 실패처리 되는데, 후에 step을 재실행 할 때 성공한 1-9의 chunk는 재시작 하지 않게 설계해야한다.
+
+- SkipListner 가 실행되는 조건
+    - 에러 발생 횟수가 skipLimit()으로 설정한 값 이하
+    - faultTolerant() 이하에 SkipListener를 등록해줘야 한다.
+
+<br>
+
+### Retry(재시도)
+> db데드락, 네트워크 타임아웃 등의 간헐적으로 발생하지만, 재시도하면 성공할 수 있는 에러의 경우 retry로 처리한다.
+
+- skip과 설정이 비슷하다. Step 수행 중 Exception 발생시 재시도 설정
+    - StepBuilder.faultTolerant().retry(Exception.class).retryLimit(N)
+- RetryTemplate 을 사용하면 재시도 후 횟수가 초과하면 특정 동작을 하게 만들 수 있다.
+
+

@@ -17,17 +17,16 @@ import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.batch.item.support.CompositeItemProcessor;
 import org.springframework.batch.item.support.CompositeItemWriter;
+import org.springframework.batch.item.support.builder.CompositeItemProcessorBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
 import javax.persistence.EntityManagerFactory;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Configuration
@@ -44,6 +43,7 @@ public class SavePersonConfiguration {
         return jobBuilderFactory.get("savePersonJob")
                 .incrementer(new RunIdIncrementer())
                 .start(this.savePersonStep(null))
+                // listener를 연속으로 설정하면 내부적으로 List에 담아서 실행한다.(설정한 순서대로 실행)
                 .listener(new SavePersonListener.SavePersonJobExecutionListener())      // SavePersonListener에 선언한 JobExecutionListner 적용
                 .listener(new SavePersonListener.SavePersonAnnotationJobExecution())    // SavePersonListener에 선언한 JobExecutionListner 적용
                 .build();
@@ -56,11 +56,16 @@ public class SavePersonConfiguration {
     ) throws Exception {
         boolean flag = "true".equals(allowDuplicate) ? true : false;
         return stepBuilderFactory.get("savePersonStep")
-                .<Person,Person>chunk(100)
+                .<Person,Person>chunk(10)
                 .reader(csvFileItemReader())
                 .processor(itemProcessor(flag))
                 .writer(compositeItemWriter())
                 .listener(new SavePersonListener.SavePersonStepExecutionListener())     // SavePersonListener에 선언한 StepExecutionListener(annotation 기반)
+                .faultTolerant()                                                        // FaultTolerantStepBuilder를 반환하고, skip과 같은 예외 처리를 설정할 수 있는 method가 생긴다.
+                .skip(NotFoundNameException.class)                                      // NotFoundNameException을
+                .skipLimit(2)                                                           // 3번까지 허용하겠다.
+//                .retry(NotFoundNameException.class)
+//                .retryLimit(3)
 //                .writer(getPersonJpaItemWriter())
                 .build();
     }
@@ -117,23 +122,44 @@ public class SavePersonConfiguration {
         return csvFileItemReader;
     }
 
-    private ItemProcessor<? super Person,? extends Person> itemProcessor(boolean flag) {
-        Map<String, String> dupMap = new HashMap<>();
-        return item -> {
-            if( flag ) {
+    private ItemProcessor<? super Person,? extends Person> itemProcessor(boolean flag) throws Exception {
+
+        // 사람 이름 중복여부 체크해주는 processor
+        ItemProcessor<Person, Person> duplicateValidationProcessor = getDuplicateValidationProcessor(flag);
+
+        // 이름이 없을경우 NotFoundNameException을 던지는 processor
+        ItemProcessor<Person, Person> validationProcessor = item -> {
+            if(item.isNotEmptyName()) {
+                return item;
+            }
+            throw new NotFoundNameException();
+        };
+
+        // 두개의 ItemProcessor를 묶는다.
+        CompositeItemProcessor<Person, Person> itemProcessor = new CompositeItemProcessorBuilder<Person, Person>()
+                .delegates( new PersonValidationRetryProcessor(),
+                        validationProcessor,
+                        duplicateValidationProcessor).build();
+
+        itemProcessor.afterPropertiesSet();
+        return itemProcessor;
+    }
+
+    private ItemProcessor<Person, Person> getDuplicateValidationProcessor(boolean flag) {
+        // 이 dupSet은 step 전체에 걸쳐 사용된다.( 여러번의 chunk에서 계속 상태를 유지한다) , 이게 StepExecutionContext와 관련이 있는건가?
+        Set<String> dupSet = new HashSet<>();
+        ItemProcessor<Person, Person> duplicateValidationProcessor =  item -> {
+            if(flag) {
                 return item;
             } else {
-                if(dupMap.containsKey(item.getName())) {
+                if(dupSet.contains(item.getName())) {
                     return null;
                 } else {
-                    dupMap.put(item.getName(), "");
+                    dupSet.add(item.getName());
                     return item;
                 }
             }
         };
+        return duplicateValidationProcessor;
     }
-    
-
-
-
 }

@@ -60,11 +60,10 @@ public class SavePersonListener {
         public ExitStatus afterStep(StepExecution stepExecution) {
             // StepExecutionListener의 afterStep은 ExitStatus를 반환할 수 있다
             log.info("afterStep : {}" , stepExecution.getWriteCount());
-
-            // Spring Batch에서 Batch step 이 성공/실패 등에 대한 상태를 저장하는데, 이 값을 그대로 돌려주자.
+            // Spring Batch에서 Batch step 이 성공/실패 등에 대한 상태를 StepExecution에 저장하는데, 이 값을 그대로 돌려주자.
             return stepExecution.getExitStatus();
 
-            // 우리가 직접 구현해도 된다
+            // 돌려주는 상태를 우리가 직접 구현해도 된다(상태변경됨)
 //            if (stepExecution.getWriteCount() == 0 ) {
 //                return ExitStatus.FAILED;
 //            }

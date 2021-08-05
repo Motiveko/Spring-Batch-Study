@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableBatchProcessing
-@EnableAutoConfiguration
+@EnableAutoConfiguration        // 스프링 부트 자동설정 사용
 public class TestConfiguration {
 
     // 이 클래스는 SpringBatchExampleApplication의 역할을 한다

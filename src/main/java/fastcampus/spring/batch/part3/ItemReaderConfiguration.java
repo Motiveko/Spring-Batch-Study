@@ -7,7 +7,6 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.JpaCursorItemReader;
@@ -19,7 +18,6 @@ import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 
 import javax.persistence.EntityManagerFactory;
@@ -53,7 +51,7 @@ public class ItemReaderConfiguration {
     public Step customItemReaderStep() {
         return stepBuilderFactory.get("customItemReaderStep")
                 .<Person, Person>chunk(10)
-                .reader(new CustomItemReader<>(getIems()))
+                .reader(new CustomItemReader<>(getItems()))
                 .writer(itemWriter())
                 .build();
     }
@@ -91,7 +89,7 @@ public class ItemReaderConfiguration {
                 .entityManagerFactory(entityManagerFactory)     // dataSource가 아닌 enetityManager가 필요하다.
                 .queryString("select p from Person p")          // Native Query가 아닌 JPQL 쿼리로 작성해야한다.
                 .build();
-        itemReader.afterPropertiesSet();
+        itemReader.afterPropertiesSet();                        // 필수설정값이 정상적으로 설정되었는지 검증
         return itemReader;
     }
 
@@ -106,7 +104,7 @@ public class ItemReaderConfiguration {
                         , rs.getString(4)
                 ))
                 .build();
-        jdbcCursorItemReader.afterPropertiesSet();
+        jdbcCursorItemReader.afterPropertiesSet();                                  // 필수설정값이 정상적으로 설정되었는지 검증
         return jdbcCursorItemReader;
     }
 
@@ -140,14 +138,14 @@ public class ItemReaderConfiguration {
     }
 
     private ItemWriter<Person> itemWriter() {
-        // ItemWriter 는 void반환 타입의 추상매소드 하나를 가지는 인터페이스로 Consumer로 생각해도 될 듯
-        return items -> log.info( items.stream()
+        // ItemWriter<T> 는 void반환 타입의 추상매소드 하나를 가지는 인터페이스로 Consumer<T>로 생각해도 될 듯
+        return items -> log.info(items.stream()
                 .map(Person::getName)
                 .collect(Collectors.joining(", "))
         );
     }
 
-    private List<Person> getIems() {
+    private List<Person> getItems() {
         List<Person> items = new ArrayList<>();
 
         for (int i = 0; i < 10; i++) {

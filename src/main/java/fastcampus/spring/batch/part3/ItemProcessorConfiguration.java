@@ -57,6 +57,7 @@ public class ItemProcessorConfiguration {
         return items;
     }
 
+    // ItemProcessor는 T -> R인 Function<T,R> 형태의 functional interface라고 생각하면 될 듯하다.(내부에 process() 하나밖에 없다)
     private ItemProcessor<Person,? extends Person> itemProcessor() {
         return item -> {
             if( item.getId() % 2 == 0) {

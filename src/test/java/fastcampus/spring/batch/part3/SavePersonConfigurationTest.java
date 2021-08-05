@@ -27,6 +27,7 @@ class SavePersonConfigurationTest {
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
 
+    // test가 아닌 main 클래스에 있는 의존성도 여기로 알아서 끌어올 수 있다?
     @Autowired
     private PersonRepository personRepository;
 
@@ -39,7 +40,7 @@ class SavePersonConfigurationTest {
     @Test
     public void test_step() {
         // job parameter 로 null을 넘겨주면 false로 실행하기로 정했었다.
-        JobExecution jobExecution = jobLauncherTestUtils.launchStep("csvChunkStep");
+        JobExecution jobExecution = jobLauncherTestUtils.launchStep("savePersonStep");
 
         Assertions.assertThat(
                 jobExecution.getStepExecutions()
@@ -69,7 +70,7 @@ class SavePersonConfigurationTest {
                         .mapToInt(StepExecution::getWriteCount)
                         .sum())
                 .isEqualTo(personRepository.count())            // JobExecution의 count() === jpaRepository의 count() ( 10 )
-                .isEqualTo(10)
+                .isEqualTo(10)                                  // 실제로 insert가 되진 않는다.
                 ;
         // 어떻게 spring-data-jpa 구현체인 jpaRepository가 이 count를 아는걸까? jpaWriter에 entityManager를 설정한 것 뿐인데.. jpa 원리를 좀 더 알아야할듯
 
@@ -84,7 +85,7 @@ class SavePersonConfigurationTest {
                 .addString("allow_duplicate", "true")
                 .toJobParameters();
 
-        // when - 테스트 대상
+        // when - 테스트 대상, 실행 결과를 JobExecution으로 받는다
         JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
         // then - 데이터 검증
