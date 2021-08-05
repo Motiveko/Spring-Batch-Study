@@ -371,6 +371,10 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
     - chunk 실행 전,후,중에 호출
     - ItemReaderListener 참고
 
+- RetryListener
+    - Retry 부분 참고
+
+
 <br><br>
 
 ## 예외처리
@@ -396,4 +400,17 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
     - StepBuilder.faultTolerant().retry(Exception.class).retryLimit(N)
 - RetryTemplate 을 사용하면 재시도 후 횟수가 초과하면 특정 동작을 하게 만들 수 있다.
 
+- retryTemplate.execute( retryContext -> {}, recoveryContext -> {}) 를 하는데, recoveryCallback은 기본으로 실행하는 작업이고, 여기서 retryLimit 수 만큼 재시도 한 후 recoveryCallback으로 넘어가게 된다.
 
+- RetryListener
+    - `RetryListener.open`: open()
+        - return true -> RetryTemplate.Callback
+        - return false -> RetryListener.close
+    - RetryTemplate.RetryCallback
+    - `RetryListener.error`: error()
+        - RetryTemplate.Callback 에서 에러 발생 시 max Attemps 설정값 만큼 반복
+    - RetryTemplate.RecoveryCallback
+        - max Attemps 값만큼 시도 후에도 에러 발생 시 실행
+    - `RetryListener.close`: close()
+    
+    
