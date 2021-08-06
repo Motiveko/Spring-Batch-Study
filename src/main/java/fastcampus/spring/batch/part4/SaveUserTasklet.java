@@ -6,6 +6,7 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,26 +35,42 @@ public class SaveUserTasklet implements Tasklet {
 
         for ( int i = 0; i < 100; i++) {
             users.add(User.builder()
-                .totalAmount(1_000)
+                .orders(Collections.singletonList(Orders.builder()
+                        .amount(1_000)
+                        .createdDate(LocalDate.of(2020,11,1))
+                        .itemName("item" + i)
+                        .build()))
                 .username("test username" + i)
                 .build());
         }
         for ( int i = 100; i < 200; i++ ) {
             users.add(User.builder()
-                .totalAmount(200_000)               // 다음 회원 등급 조정 Step에서 이 값을 읽어 회원등급을 최초 NORMAL -> SILVER로 올릴것이다.
+                .orders(Collections.singletonList(Orders.builder()
+                        .amount(200_000)
+                        .createdDate(LocalDate.of(2020,11,1))
+                        .itemName("item" + i)
+                        .build()))
                 .username("test username" + i)
                 .build());
         }
 
         for ( int i = 200; i < 300; i++ ) {
             users.add(User.builder()
-                    .totalAmount(300_000)           // 다음 회원 등급 조정 Step에서 이 값을 읽어 회원등급을 최초 NORMAL -> GOLD 올릴것이다.
+                    .orders(Collections.singletonList(Orders.builder()
+                            .amount(300_000)
+                            .createdDate(LocalDate.of(2020,11,1))
+                            .itemName("item" + i)
+                            .build()))
                     .username("test username" + i)
                     .build());
         }
         for ( int i = 300; i < 400; i++ ) {
             users.add(User.builder()
-                    .totalAmount(500_000)           // 다음 회원 등급 조정 Step에서 이 값을 읽어 회원등급을 최초 NORMAL -> VIP로 올릴것이다.
+                    .orders(Collections.singletonList(Orders.builder()
+                            .amount(500_000)
+                            .createdDate(LocalDate.of(2020,11,1))
+                            .itemName("item" + i)
+                            .build()))
                     .username("test username" + i)
                     .build());
         }
