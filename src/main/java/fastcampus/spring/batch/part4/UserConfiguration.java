@@ -1,40 +1,154 @@
 package fastcampus.spring.batch.part4;
 
+import fastcampus.spring.batch.part5.JobParametersDecide;
+import fastcampus.spring.batch.part5.OrderStatistics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.JpaPagingItemReader;
+import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
+import org.springframework.batch.item.file.FlatFileItemWriter;
+import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
+import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
+import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.FileSystemResource;
 
 import javax.persistence.EntityManagerFactory;
+import javax.sql.DataSource;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
 @Configuration
 public class UserConfiguration {
 
+    private final int CHUNK_SIZE = 100;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
     private final UserRepository userRepository;
     private final EntityManagerFactory entityManagerFactory;
 
+    private final DataSource dataSource;
+
+    // 실무에선 이렇게 하나의 job에 성격이 다른 여러 step을 연결하지 않는다
     @Bean
     public Job userJob() throws Exception {
         return jobBuilderFactory.get("userJob")
                 .incrementer(new RunIdIncrementer())
-                .start(saveUserStep())
+                .start(clearUserStep())
+                .next(saveUserStep())
                 .next(userLevelUpStep())
                 .listener(new LevelUpJobExecutionListener(userRepository))
+                .next(new JobParametersDecide("date"))
+                .on(JobParametersDecide.CONTINUE.getName())  // 결과가 JobParametersDecide.CONTINUE.getName() 와 같으면 이하 to() 내의 step을 실행한다.
+                .to(orderStatisticsStep(null))
+                .build()
+                .build();
+    }
+
+    @Bean
+    @JobScope
+    public Step orderStatisticsStep(@Value("#{jobParameters[date]}") String date) throws Exception {
+        return stepBuilderFactory.get("orderStatisticsStep")
+                .<OrderStatistics, OrderStatistics>chunk(CHUNK_SIZE)
+                .reader(orderStatisticsItemReader(date))
+                .writer(orderStatisticsItemWriter(date))
+                .build();
+    }
+
+    /**
+     * 한달간의 Orders 데이터를 읽어 일별 금액(amount)의 총합을 읽어들인다
+     * @param date
+     * @return
+     * @throws Exception
+     */
+    private ItemReader<? extends OrderStatistics> orderStatisticsItemReader(String date) throws Exception {
+        YearMonth yearMonth = YearMonth.parse(date);
+
+        Map<String, Object> parameters = new HashMap<>();
+
+        parameters.put("startDate", yearMonth.atDay(1) );   // date 달의 1일
+        parameters.put("endDate", yearMonth.atEndOfMonth());           // date 달의 마지막일
+
+        // 정렬 -> created_date 기준 오름차순정렬
+        Map<String, Order> sortKey = Collections.singletonMap("created_date", Order.ASCENDING);
+
+        JdbcPagingItemReader<OrderStatistics> itemReader = new JdbcPagingItemReaderBuilder<OrderStatistics>()
+                .dataSource(this.dataSource)
+                .rowMapper((rs, rowNum) -> OrderStatistics.builder()
+                        .amount(rs.getString(1))
+                        .date(LocalDate.parse(rs.getString(2), DateTimeFormatter.ISO_DATE))
+                        .build())
+                .pageSize(CHUNK_SIZE)
+                .name("orderStatisticsItemReader")
+                .selectClause("sum(amount), created_date")
+                .fromClause("orders")
+                .whereClause("created_date >= :startDate and created_date <= :endDate")
+                .groupClause("created_date ")
+                .parameterValues(parameters)
+                .sortKeys(sortKey)
+                .build();
+
+        itemReader.afterPropertiesSet();
+
+        return itemReader;
+    }
+
+    /**
+     * orderStatisticsItemReader에서 읽은 데이터를 기준으로 csv 파일을 생성한다.
+     * @param date
+     * @return
+     */
+    private ItemWriter<? super OrderStatistics> orderStatisticsItemWriter(String date) throws Exception {
+
+        YearMonth yearMonth = YearMonth.parse(date);
+
+        String fileName = String.format("%s년_%d월_일별_주문_금액.csv", yearMonth.getYear(), yearMonth.getMonthValue());
+
+        BeanWrapperFieldExtractor<OrderStatistics> fieldExtractor = new BeanWrapperFieldExtractor<>();
+        fieldExtractor.setNames(new String[]{"amount", "date"});
+
+        DelimitedLineAggregator<OrderStatistics> lineAggregator = new DelimitedLineAggregator<>();
+        lineAggregator.setDelimiter(",");
+        lineAggregator.setFieldExtractor(fieldExtractor);
+
+        FlatFileItemWriter<OrderStatistics> itemWriter = new FlatFileItemWriterBuilder<OrderStatistics>()
+                .resource(new FileSystemResource("output/" + fileName))
+                .lineAggregator(lineAggregator)
+                .name("orderStatisticsItemWriter")
+                .encoding("UTF-8")
+                .headerCallback(writer -> writer.write("total_amount, date"))
+                .build();
+
+        itemWriter.afterPropertiesSet();
+
+        return itemWriter;
+    }
+
+    @Bean
+    public Step clearUserStep() {
+        return stepBuilderFactory.get("clearUserStep")
+                .tasklet(new ClearUserStep(userRepository))
                 .build();
     }
 
@@ -49,7 +163,7 @@ public class UserConfiguration {
     @Bean
     public Step userLevelUpStep() throws Exception {
         return stepBuilderFactory.get("userLevelUpStep")
-                .<User, User>chunk(100)
+                .<User, User>chunk(CHUNK_SIZE)
                 .reader(itemReader())           // db에서 User 정보 가져온다
                 .processor(itemProcessor())     // 등급 up
                 .writer(itemWriter())           // 다시저장
@@ -60,7 +174,7 @@ public class UserConfiguration {
         JpaPagingItemReader<User> itemReader = new JpaPagingItemReaderBuilder<User>()
                 .queryString("select u from User u")
                 .entityManagerFactory(entityManagerFactory)
-                .pageSize(100)
+                .pageSize(CHUNK_SIZE)
                 .name("userItemReader")
                 .build();
         itemReader.afterPropertiesSet();

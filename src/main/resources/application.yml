@@ -6,4 +6,3 @@ spring:
 #  datasource:
 #      driver-class-name: org.h2.Driver
 #      data: classpath:person.sql        # application 실행 시 person.sql을 실행해 h2db에 insert한다
-

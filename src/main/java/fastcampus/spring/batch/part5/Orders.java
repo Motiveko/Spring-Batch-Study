@@ -1,13 +1,11 @@
-package fastcampus.spring.batch.part4;
+package fastcampus.spring.batch.part5;
 
+import fastcampus.spring.batch.part4.User;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.time.LocalDate;
 
 @Entity
@@ -24,6 +22,10 @@ public class Orders {
     private int amount;
 
     private LocalDate createdDate;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Builder
     public Orders(String itemName, int amount, LocalDate createdDate) {

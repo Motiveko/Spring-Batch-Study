@@ -45,6 +45,8 @@ create database spring_batch;
 - SpringEL을 이용한 접근 -> ( `@Value("#{jobParameters[key]}")`) 
     - springEL을 활용한 접근에는 `Scope` 어노테이션이 필수로 적용되어야 한다.
 
+3. JobParameters를 사용하기 위해서는 @Scope 관련 어노테이션이 필수다. 이유는 Bean의 생성시점때문
+
 <br><br>
 
 ## @JobScope, @StepScope
@@ -414,3 +416,23 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
     - `RetryListener.close`: close()
     
     
+
+## 예제/실전 개발 중 추가 사항 정리
+
+### FlatFileItemWriter 의 작동 시점
+-  어떤 chunkprocess에서 결과값을 csv등의 File로 저장할 대, FlatFileItemWriter는 매 chunk마다 file을 생성할까?
+    > 그렇지 않다! FlatFileItemWriter는 write()parameter인 List를 memory에 모두 저장했다가  step이 끝나는 시점에 write를 실행한다!
+     
+    > 따라서 chunk사이즈로 인해 read/process가 여러번이뤄지고 write도 여러번 이뤄지는것에 대한 걱정은 하지 않아도 된다
+ 
+
+### JobExecutionDecider
+> 배치 실행 시 상태에 따라 배치를 실행할 지 결정하는 인터페이스
+
+- decide() 구현체는 FlowExecutionStatus를 결정하고, 이 상태에 따라 배치 실행 여부를 결정할 수 있다.
+    - 예제는 jobParameters에 date가 있을 때 orderStatisticsStep을 실행시키고 없으면 시키지 않는다.
+- 설정 방법은jobBuilder에서 
+    - .decide({{JobExecutionDecider구현체}})  -> decider 주입   
+    - .on(STATUS)                           -> 원하는 STATUS
+    - .to(Step)                             -> 결과가 일치하면 실행할 Step
+    - .build()                              -> FlowBuilder -> FlowJobBuilder로 

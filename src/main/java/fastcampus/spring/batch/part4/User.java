@@ -1,5 +1,6 @@
 package fastcampus.spring.batch.part4;
 
+import fastcampus.spring.batch.part5.Orders;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,6 +25,7 @@ public class User {
     private Level level = Level.NORMAL;
 
     @OneToMany(cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "user_id")
     private List<Orders> orders;
 
     private LocalDate updatedDate;

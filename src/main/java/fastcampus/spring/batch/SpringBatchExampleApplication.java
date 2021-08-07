@@ -1,18 +1,23 @@
 package fastcampus.spring.batch;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import java.util.Arrays;
+
 @EnableBatchProcessing
 @SpringBootApplication
+@Slf4j
 public class SpringBatchExampleApplication {
 
 
     public static void main(String[] args) {
 
         SpringApplication.run(SpringBatchExampleApplication.class, args);
-
+        System.out.println("Program Argument ==============");
+        Arrays.stream(args).forEach(System.out::println);
 /*        PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
         Phonenumber.PhoneNumber phoneNumber = phoneUtil.parse("+1 10-941-2319", "KR");
         Arrays.asList(
