@@ -4,41 +4,30 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.util.Arrays;
 
 @EnableBatchProcessing
 @SpringBootApplication
-@Slf4j
 public class SpringBatchExampleApplication {
-
-
     public static void main(String[] args) {
-
-        SpringApplication.run(SpringBatchExampleApplication.class, args);
-        System.out.println("Program Argument ==============");
-        Arrays.stream(args).forEach(System.out::println);
-/*        PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
-        Phonenumber.PhoneNumber phoneNumber = phoneUtil.parse("+1 10-941-2319", "KR");
-        Arrays.asList(
-                "+1 917-941-2319",
-                "+82 10-5165-2006",
-                "+1 010-5165-2006",
-                "+82 2-1234-5678",
-                "+1 404-516-2006"
-                )
-                .stream()
-                .map(phone -> {
-                    try {
-                        return phoneUtil.parse(phone, "KR");
-                    } catch (NumberParseException e) {
-                        e.printStackTrace();
-                    } return null;
-                })
-                .map(phone -> phoneUtil.format(phone, PhoneNumberUtil.PhoneNumberFormat.NATIONAL))
-                .forEach(System.out::println);
-        String pre = phoneUtil.format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.NATIONAL);
-        System.out.println(pre);*/
+        // async로 실행 시 종료가 안될때가 있어 배치가 종류가 안될때가 있어 추가함
+        System.exit(SpringApplication.exit(SpringApplication.run(SpringBatchExampleApplication.class, args)));
     }
 
+    @Bean
+    @Primary
+    TaskExecutor taskExecutor() {
+        // multi-thread로 배치 실행을 위해 TaskExecutor 빈을 직접 선언해준다.
+        ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+        taskExecutor.setCorePoolSize(10);
+        taskExecutor.setMaxPoolSize(20);
+        // 로그에 찍히는 쓰레드명의 앞에 batch-thread-가 붙는다
+        taskExecutor.setThreadNamePrefix("batch-thread-");
+        taskExecutor.initialize();
+        return taskExecutor;
+    }
 }

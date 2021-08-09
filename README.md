@@ -425,6 +425,7 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
      
     > 따라서 chunk사이즈로 인해 read/process가 여러번이뤄지고 write도 여러번 이뤄지는것에 대한 걱정은 하지 않아도 된다
  
+ <br><br>
 
 ### JobExecutionDecider
 > 배치 실행 시 상태에 따라 배치를 실행할 지 결정하는 인터페이스
@@ -436,3 +437,37 @@ class SavePersonJobExecutionListener implements JobExecutionListener {
     - .on(STATUS)                           -> 원하는 STATUS
     - .to(Step)                             -> 결과가 일치하면 실행할 Step
     - .build()                              -> FlowBuilder -> FlowJobBuilder로 
+
+<br><br>
+
+### UserConfiguration에서 성능 개선을 위한 수정
+
+- 먼저 실행되어야 할 Step 먼저 실행
+- 서로 영향없는 Step의 동시실행
+- Step별 성능평가
+    - 40,000건의 고객 데이터 저장 및 levelup, 일별 금액집계 
+    - step별 소요시간
+        - SimpleStep
+            - 기본스탭
+            - 9763, 10055, 9774
+        - AsyncStep
+            - ItemProcessor와 ItemWriter를 기준으로 Async처리되어 실행한다.
+            - Future 기반 asynchronous -> processor가 output을 Future<T>형태로 감싼다.
+            - Async를 사용하기 위해 spring-batch-integration필요하다.
+            - 9997, 9968, 9993
+        - Multi-Thread Step
+            - chunk 기준으로 multi-thread처리되어 실행
+            - cursor기반 jpa 등 thread-safe하지 않은 itemWriter사용시 적용하면 안됨
+            - 적용을 원하는 step에 taskExecutor설정해주고 throttleLimit으로 thread수 설정할 수 있다.
+            - 7101
+        - Partition Step
+            - step기준으로 partition되어 실행(점점 적용범위가 넓어진다.)
+            - Master Step이 여러개의 SalveStep을 만들어 전체 건을 나눠처리한다.
+                - chunk로 나누는거랑 뭐가 다른걸까? -> partition으로 나누고 chunk로 한번 더 나누게 된다. 이 때 partition으로 쪼개진 스탭은 비동기로 처리된다고한다.
+            - Salve Step은 각각 하나의 Step으로 동작한다
+            - 7961, 7900, 7891
+        - Async + Partition Step
+            - PartitionStep에 ItemProcessor와 Writer만 Async걸로 바꿔준 방법
+            - 실행시간 PartitionStep과 거의 비슷하다.
+        - Parallel Step
+        - Partition + Parallel Step

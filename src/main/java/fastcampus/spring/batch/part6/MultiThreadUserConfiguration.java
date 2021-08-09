@@ -1,5 +1,6 @@
-package fastcampus.spring.batch.part4;
+package fastcampus.spring.batch.part6;
 
+import fastcampus.spring.batch.part4.*;
 import fastcampus.spring.batch.part5.JobParametersDecide;
 import fastcampus.spring.batch.part5.OrderStatistics;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,6 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.task.TaskExecutor;
 
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
@@ -40,9 +41,9 @@ import java.util.Map;
 @Slf4j
 @RequiredArgsConstructor
 @Configuration
-public class UserConfiguration {
+public class MultiThreadUserConfiguration {
 
-    private final String JOB_NAME = "userJob";
+    private final String JOB_NAME = "multiThreadUserJob";
     private final int CHUNK_SIZE = 1_000;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
@@ -50,6 +51,8 @@ public class UserConfiguration {
     private final EntityManagerFactory entityManagerFactory;
 
     private final DataSource dataSource;
+
+    private final TaskExecutor taskExecutor;
 
     // 실무에선 이렇게 하나의 job에 성격이 다른 여러 step을 연결하지 않는다
     @Bean(JOB_NAME)
@@ -168,6 +171,8 @@ public class UserConfiguration {
                 .reader(itemReader())           // db에서 User 정보 가져온다
                 .processor(itemProcessor())     // 등급 up
                 .writer(itemWriter())           // 다시저장
+                .taskExecutor(taskExecutor)
+                .throttleLimit(8)               // 8개의 쓰레드로 step을 처리하겠다.
                 .build();
     }
 

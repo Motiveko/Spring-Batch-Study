@@ -6,7 +6,7 @@ spring:
       username: root
       password:
   jpa:
-    show-sql: true              # jpa 쿼리가 로그로 찍혀요
+    show-sql: false              # jpa 쿼리가 로그로 찍혀요
     hibernate:
       ddl-auto: update
 

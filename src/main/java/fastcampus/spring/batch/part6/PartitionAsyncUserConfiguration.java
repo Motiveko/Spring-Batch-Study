@@ -1,5 +1,6 @@
-package fastcampus.spring.batch.part4;
+package fastcampus.spring.batch.part6;
 
+import fastcampus.spring.batch.part4.*;
 import fastcampus.spring.batch.part5.JobParametersDecide;
 import fastcampus.spring.batch.part5.OrderStatistics;
 import lombok.RequiredArgsConstructor;
@@ -9,8 +10,12 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-
+import org.springframework.batch.core.partition.PartitionHandler;
+import org.springframework.batch.core.partition.support.TaskExecutorPartitionHandler;
+import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -27,6 +32,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.task.TaskExecutor;
 
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
@@ -36,13 +42,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 @Slf4j
 @RequiredArgsConstructor
 @Configuration
-public class UserConfiguration {
+public class PartitionAsyncUserConfiguration {
 
-    private final String JOB_NAME = "userJob";
+    private final String JOB_NAME = "partitionAsyncUserJob";
     private final int CHUNK_SIZE = 1_000;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
@@ -51,14 +58,16 @@ public class UserConfiguration {
 
     private final DataSource dataSource;
 
+    private final TaskExecutor taskExecutor;
+
     // 실무에선 이렇게 하나의 job에 성격이 다른 여러 step을 연결하지 않는다
     @Bean(JOB_NAME)
     public Job userJob() throws Exception {
-        return jobBuilderFactory.get(JOB_NAME)
+        return this.jobBuilderFactory.get(JOB_NAME)
                 .incrementer(new RunIdIncrementer())
                 .start(clearUserStep())
                 .next(saveUserStep())
-                .next(userLevelUpStep())
+                .next(this.userLevelUpManagerStep())
                 .listener(new LevelUpJobExecutionListener(userRepository))
                 .next(new JobParametersDecide("date"))
                 .on(JobParametersDecide.CONTINUE.getName())  // 결과가 JobParametersDecide.CONTINUE.getName() 와 같으면 이하 to() 내의 step을 실행한다.
@@ -164,16 +173,53 @@ public class UserConfiguration {
     @Bean(JOB_NAME + "_userLevelUpStep")
     public Step userLevelUpStep() throws Exception {
         return stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep")
-                .<User, User>chunk(CHUNK_SIZE)
-                .reader(itemReader())           // db에서 User 정보 가져온다
+                .<User, Future<User>>chunk(CHUNK_SIZE)
+                .reader(itemReader(null, null))           // db에서 User 정보 가져온다
                 .processor(itemProcessor())     // 등급 up
                 .writer(itemWriter())           // 다시저장
                 .build();
     }
 
-    private ItemReader<? extends User> itemReader() throws Exception {
+    // 이것이 마스터스탭
+    @Bean(JOB_NAME + "_userLevelUpStep.manager")
+    public Step userLevelUpManagerStep() throws Exception {
+        return this.stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep.manager")
+                .partitioner(JOB_NAME + "_userLevelUpStep", new UserLevelUpPartitioner(userRepository))
+                .step(userLevelUpStep())
+                .partitionHandler(taskExecutorPartitionHandler())
+                .build();
+    }
+
+    /**
+     * 파티션을 핸들링 할 수 있는 객체,
+     * @return
+     * @throws Exception
+     */
+    @Bean(JOB_NAME + "_taskExecutorPartitionHandler")
+    PartitionHandler taskExecutorPartitionHandler() throws Exception {
+        TaskExecutorPartitionHandler handler = new TaskExecutorPartitionHandler();
+        handler.setStep(userLevelUpStep());
+        handler.setTaskExecutor(this.taskExecutor);
+        handler.setGridSize(8);
+
+        return handler;
+    }
+
+    /**
+     * itemReader에서 ExecutionContext를 사용하기 위해서는 @StepScope가 필요하고, @StepScope를 사용하려면 @Bean이 필요하다.
+     * @StepScope를 쓰면 return Type을 interface가 아니라 구현체로 정확히 명시해줘야한다.
+     * 그 이유는 proxy로 설정이 되기때문이라는데, 정확히는 강사도 모르는듯. 안하면 어쨋든 NullPointException 존나게뜬다.
+     */
+    @Bean(JOB_NAME + "_itemReader")
+    @StepScope
+    JpaPagingItemReader<User> itemReader(@Value("#{stepExecutionContext[minId]}") Long minId,
+                                          @Value("#{stepExecutionContext[maxId]}") Long maxId) throws Exception {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("minId", minId);
+        parameters.put("maxId", maxId);
         JpaPagingItemReader<User> itemReader = new JpaPagingItemReaderBuilder<User>()
-                .queryString("select u from User u")
+                .queryString("select u from User u where u.id between :minId and :maxId")
+                .parameterValues(parameters)
                 .entityManagerFactory(entityManagerFactory)
                 .pageSize(CHUNK_SIZE)
                 .name(JOB_NAME + "_userItemReader")
@@ -184,22 +230,34 @@ public class UserConfiguration {
     }
 
     // Function<User,User>
-    private ItemProcessor<? super User,? extends User> itemProcessor() {
-        return user -> {
+    private AsyncItemProcessor<User, User> itemProcessor() {
+        ItemProcessor<User, User> itemProcessor = user -> {
             if( user.availableLevelUp()) {
                 return user;
             }
             // 등급 상향 대상이 아니라면, null을 return(처리를 하지 않는다)
             return null;
         };
+
+        AsyncItemProcessor<User, User> asyncItemProcessor = new AsyncItemProcessor<>();
+        // 기본 itemProcessor를 setDelegate로 감싼다.
+        asyncItemProcessor.setDelegate(itemProcessor);
+        // 선언해놓은 taskExecutor 빈을 주입한다.
+        asyncItemProcessor.setTaskExecutor(taskExecutor);
+        return asyncItemProcessor;
     }
 
     // Consumer<User>
-    private ItemWriter<? super User> itemWriter() {
-        return users -> users.forEach(x -> {
+    private AsyncItemWriter<User> itemWriter() {
+        ItemWriter<User> itemWriter = users -> users.forEach(x -> {
             x.levelUp();
             userRepository.save(x);
         });
+
+        AsyncItemWriter<User> asyncItemWriter = new AsyncItemWriter<>();
+        asyncItemWriter.setDelegate(itemWriter);
+
+        return asyncItemWriter;
     }
 
 }

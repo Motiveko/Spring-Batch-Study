@@ -27,7 +27,7 @@ public class LevelUpJobExecutionListener implements JobExecutionListener {
         long executionTime = jobExecution.getEndTime().getTime() - jobExecution.getStartTime().getTime();
         log.info("회원 등급 업데이트 배치 프로그램");
         log.info("------------------------");
-        log.info("총 데이터 처리 {}건, 처리 시간 {}millis", updatedUsers.size(), executionTime);
+        log.info("총 데이터 처리 {}건, 처리 시간 {}  millis", updatedUsers.size(), executionTime);
 
     }
 }

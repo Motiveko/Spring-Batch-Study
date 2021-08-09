@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @RunWith(SpringRunner.class)
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {UserConfiguration.class, TestConfiguration.class})
-class UserConfigurationTest {
+class PartitionUserConfigurationTest {
 
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;

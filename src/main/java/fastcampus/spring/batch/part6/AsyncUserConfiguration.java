@@ -1,5 +1,6 @@
-package fastcampus.spring.batch.part4;
+package fastcampus.spring.batch.part6;
 
+import fastcampus.spring.batch.part4.*;
 import fastcampus.spring.batch.part5.JobParametersDecide;
 import fastcampus.spring.batch.part5.OrderStatistics;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,8 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-
+import org.springframework.batch.integration.async.AsyncItemProcessor;
+import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -27,6 +29,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.task.TaskExecutor;
 
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
@@ -36,13 +39,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 @Slf4j
 @RequiredArgsConstructor
 @Configuration
-public class UserConfiguration {
+public class AsyncUserConfiguration {
 
-    private final String JOB_NAME = "userJob";
+    private final String JOB_NAME = "asyncUserJob";
     private final int CHUNK_SIZE = 1_000;
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
@@ -50,6 +54,8 @@ public class UserConfiguration {
     private final EntityManagerFactory entityManagerFactory;
 
     private final DataSource dataSource;
+
+    private final TaskExecutor taskExecutor;
 
     // 실무에선 이렇게 하나의 job에 성격이 다른 여러 step을 연결하지 않는다
     @Bean(JOB_NAME)
@@ -164,7 +170,7 @@ public class UserConfiguration {
     @Bean(JOB_NAME + "_userLevelUpStep")
     public Step userLevelUpStep() throws Exception {
         return stepBuilderFactory.get(JOB_NAME + "_userLevelUpStep")
-                .<User, User>chunk(CHUNK_SIZE)
+                .<User, Future<User>>chunk(CHUNK_SIZE)      // AsyncItemProcessor는 output 타입을 Future로 감싸기때문에 Future<User>로 설정해줘야한다.
                 .reader(itemReader())           // db에서 User 정보 가져온다
                 .processor(itemProcessor())     // 등급 up
                 .writer(itemWriter())           // 다시저장
@@ -184,22 +190,34 @@ public class UserConfiguration {
     }
 
     // Function<User,User>
-    private ItemProcessor<? super User,? extends User> itemProcessor() {
-        return user -> {
+    private AsyncItemProcessor<User, User> itemProcessor() {
+        ItemProcessor<User, User> itemProcessor = user -> {
             if( user.availableLevelUp()) {
                 return user;
             }
             // 등급 상향 대상이 아니라면, null을 return(처리를 하지 않는다)
             return null;
         };
+
+        AsyncItemProcessor<User, User> asyncItemProcessor = new AsyncItemProcessor<>();
+        // 기본 itemProcessor를 setDelegate로 감싼다.
+        asyncItemProcessor.setDelegate(itemProcessor);
+        // 선언해놓은 taskExecutor 빈을 주입한다.
+        asyncItemProcessor.setTaskExecutor(taskExecutor);
+        return asyncItemProcessor;
     }
 
     // Consumer<User>
-    private ItemWriter<? super User> itemWriter() {
-        return users -> users.forEach(x -> {
+    private AsyncItemWriter<User> itemWriter() {
+        ItemWriter<User> itemWriter = users -> users.forEach(x -> {
             x.levelUp();
             userRepository.save(x);
         });
+
+        AsyncItemWriter<User> asyncItemWriter = new AsyncItemWriter<>();
+        asyncItemWriter.setDelegate(itemWriter);
+
+        return asyncItemWriter;
     }
 
 }

@@ -24,7 +24,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Level level = Level.NORMAL;
 
-    @OneToMany(cascade = CascadeType.PERSIST)
+    // 멀티쓰레디에서 Lazy-Loading을 사용하면 에러 발생 가능성이 있다.
+    @OneToMany(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     private List<Orders> orders;
 
